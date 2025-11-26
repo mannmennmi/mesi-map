@@ -208,7 +208,7 @@
         let markers = [];
         let userMarker = null;
         let categoryMap = {}; 
-        let activeCategory = 'すべて';
+        let activeCategory = 'ラーメン';
         let activeArea = null;
 
         // --- 1. データ読み込み ---
@@ -221,13 +221,53 @@
                 
                 processCategories(); // カテゴリ解析
                 initUI();            // UI構築
-                updateMap();         // 地図描画
                 
-                // ローディング終了
-                setTimeout(() => {
-                    document.getElementById('loader').style.opacity = '0';
-                    setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
-                }, 500);
+                // 現在地を取得して地図の中心を設定
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                            const { latitude, longitude } = pos.coords;
+                            
+                            // 現在地マーカーを表示
+                            const icon = L.divIcon({ className: 'user-marker', iconSize: [20,20] });
+                            userMarker = L.marker([latitude, longitude], { icon: icon }).addTo(map);
+                            
+                            // 地図の中心を現在地に設定（ズームレベル15で周辺を表示）
+                            map.setView([latitude, longitude], 15);
+                            
+                            updateMap(); // 地図描画
+                            
+                            // ローディング終了
+                            setTimeout(() => {
+                                document.getElementById('loader').style.opacity = '0';
+                                setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
+                            }, 500);
+                        },
+                        (err) => {
+                            console.warn("位置情報の取得に失敗しました。デフォルト位置を表示します。", err);
+                            // エラー時はデフォルト位置（東京）を表示
+                            map.setView([35.6812, 139.7671], 12);
+                            updateMap(); // 地図描画
+                            
+                            // ローディング終了
+                            setTimeout(() => {
+                                document.getElementById('loader').style.opacity = '0';
+                                setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
+                            }, 500);
+                        },
+                        { enableHighAccuracy: true, timeout: 10000 }
+                    );
+                } else {
+                    // 位置情報がサポートされていない場合はデフォルト位置を表示
+                    map.setView([35.6812, 139.7671], 12);
+                    updateMap(); // 地図描画
+                    
+                    // ローディング終了
+                    setTimeout(() => {
+                        document.getElementById('loader').style.opacity = '0';
+                        setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
+                    }, 500);
+                }
 
             } catch (e) {
                 console.error(e);
@@ -282,7 +322,7 @@
 
             parents.forEach(parent => {
                 const btn = document.createElement('button');
-                btn.className = `pill-btn ${parent === 'すべて' ? 'active' : ''}`;
+                btn.className = `pill-btn ${parent === activeCategory ? 'active' : ''}`;
                 
                 const iconClass = iconMap[parent] || 'fa-utensils';
                 btn.innerHTML = `<i class="fa-solid ${iconClass}"></i> ${parent}`;
@@ -298,6 +338,9 @@
                 };
                 container.appendChild(btn);
             });
+            
+            // 初期状態でラーメンのエリアボタンを表示
+            renderAreaButtons(activeCategory);
         }
 
         // --- 4. UI生成 (子エリア) ---
